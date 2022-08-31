@@ -1,0 +1,2 @@
+# numerical-trickery
+calculating differences
