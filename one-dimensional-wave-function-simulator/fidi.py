@@ -1,7 +1,10 @@
 import numpy as np
-from math import factorial as factorial
+from math import factorial
+from scipy import sparse
 
-def diff_coeff(l, m, n):
+# Finite Difference
+
+def diff_coeff(l, m, n, d='First'):
     
     """
     
@@ -12,89 +15,83 @@ def diff_coeff(l, m, n):
     l-point stencil with m=(l-1)/2 and l is odd, is called a 'central' finite 
     difference. For the 'forward' and 'backward' difference schemes, m is 0 
     and l-1, respectively.
+    Return: float scalar
     
     """
-    
-    def factorial(k):
-        if type(k) is not int:
-            print("Invalid input! The function 'factorial' only accepts non-negative integers.")
-        elif k < 0:
-            return None
-        elif k == 0:
-            return 1
-        else:
-            return k*factorial(k-1)
     
     coeff = 0
     if (m >= l) or (n >= l):
         print("Invalid inputs! The function 'diff_coeff' requires 0 < m < l and 0 < n < l.")
         return None
-    elif m != n:
-        coeff = (-1)**(m+n)/(m-n) * factorial(m)*factorial(l-m-1)/factorial(n)/factorial(l-n-1)
-    else:
+    elif d == 'First':
+        if m != n:
+            coeff = (-1)**(m+n)/(m-n) * factorial(m)*factorial(l-m-1)/factorial(n)/factorial(l-n-1)
+        else:
+            for i in range(l):
+                if i == m:
+                    continue
+                else:
+                    coeff += -diff_coeff(l, m, i)
+    elif d == 'Second':
         for i in range(l):
-            if i == m:
-                continue
-            else:
-                coeff += -diff_coeff(l, m, i)
+            coeff += diff_coeff(l, m, i)*diff_coeff(l, i, n)
+    else:
+        print("Input for 'd' is not recognized. Valid inputs: d='First' or d='Second'")
+        return None
     
     return coeff
 
-def bounded_diff(M, m=1):
+def diff(M, m=1, d='First', bc='Bounded'):
     
     """
     
-    This function generates the difference matrix for a bounded
-    domain of M grid points. with a difference scheme of order 2m+1.
+    This function generates the 'd-th' difference matrix with a domain of M grid points
+    and a difference scheme of order 2m+1, where M >= 2m+1. The boundary condition can
+    be set to either bc='Bounded' or bc='Periodic'.
     
-    """
+    d='First': first finite difference (1st derivative approximation)
+    d='Sencond': second finite difference (2nd derivative approximation)
     
-    matrix = np.zeros((M, M))
-    l = 2*m+1
-    
-    if (M < l) or (type(M) is not int) or (type(m) is not int):
-        print("Invalid inputs! Expecting integers for M and m, where M >= 2m+1.")
-        return None
-    else:
-        for i in range(M):
-            for j in range(M):
-                if (i < m) and (j < l):
-                    matrix[i, j] = diff_coeff(l, i, j)
-                elif (M-i <= m) and (M-j <= l):
-                    matrix[i, j] = diff_coeff(l, i+l-M, j+l-M)
-                elif np.abs(j-i) <= m:
-                    matrix[i, j] = diff_coeff(l, m, j-i+m)
-                else:
-                    continue
-    
-    return matrix
-
-def periodic_diff(M, m=1):
-    
-    """
-    
-    This function generates the difference matrix for a periodic
-    domain of M grid points. with a difference scheme of order 2m+1.
+    Return: scipy sparse COO matrix
     
     """
     
     matrix = np.zeros((M, M))
     l = 2*m+1
+    I = []
+    J = []
+    V = []
     
     if (M < l) or (type(M) is not int) or (type(m) is not int):
         print("Invalid inputs! Expecting integers for M and m, where M >= 2m+1.")
         return None
-    else:
+    elif bc == 'Bounded':
         for i in range(M):
             for j in range(M):
                 if np.abs(j-i) <= m:
-                    matrix[i, j] = diff_coeff(l, m, j-i+m)
-                elif M-np.abs(j-i) <= m:
-                    matrix[i, j] = diff_coeff(l, m, int(np.sign(j-i)*(np.abs(j-i)-M)+m))
+                    I.append(i)
+                    J.append(j)
+                    V.append(diff_coeff(l, m, j-i+m, d))
                 else:
                     continue
+    elif bc == 'Periodic':
+        for i in range(M):
+            for j in range(M):
+                if np.abs(j-i) <= m:
+                    I.append(i)
+                    J.append(j)
+                    V.append(diff_coeff(l, m, j-i+m, d))
+                elif M-np.abs(j-i) <= m:
+                    I.append(i)
+                    J.append(j)
+                    V.append(diff_coeff(l, m, int(np.sign(j-i)*(np.abs(j-i) - M) + m), d))
+                else:
+                    continue
+    else:
+        print("Invalid boundary condition. Use the following: bc='Bounded' or bc='Periodic'")
+        return None
     
-    return matrix
+    return sparse.coo_array((V,(I,J)), shape=(M, M))
 
 def spacing(i, f, n, bound=True, periodic=False):
     
@@ -104,6 +101,7 @@ def spacing(i, f, n, bound=True, periodic=False):
     Bound spacing includes the initial and final points.
     Periodic spacing includes initial point but exclude final point.
     Neither spacing excludes both i and f.
+    Return: numpy array
     
     """
     
@@ -122,4 +120,3 @@ def spacing(i, f, n, bound=True, periodic=False):
         array[step] = init + step*step_size
     
     return array
-
