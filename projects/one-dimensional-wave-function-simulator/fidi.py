@@ -1,6 +1,7 @@
 import numpy as np
 from math import factorial
 from scipy import sparse
+from tqdm.notebook import tqdm
 
 # Finite Difference
 
@@ -15,7 +16,7 @@ def diff_coeff(l, m, n, d='First'):
     l-point stencil with m=(l-1)/2 and l is odd, is called a 'central' finite 
     difference. For the 'forward' and 'backward' difference schemes, m is 0 
     and l-1, respectively.
-    Return: float scalar
+    Return: scalar
     
     """
     
@@ -66,7 +67,8 @@ def diff(M, m=1, d='First', bc='Bounded'):
         print("Invalid inputs! Expecting integers for M and m, where M >= 2m+1.")
         return None
     elif bc == 'Bounded':
-        for i in range(M):
+        print('Generating difference matrix...')
+        for i in tqdm(range(M)):
             for j in range(M):
                 if np.abs(j-i) <= m:
                     I.append(i)
@@ -75,7 +77,8 @@ def diff(M, m=1, d='First', bc='Bounded'):
                 else:
                     continue
     elif bc == 'Periodic':
-        for i in range(M):
+        print('Generating difference matrix...')
+        for i in tqdm(range(M)):
             for j in range(M):
                 if np.abs(j-i) <= m:
                     I.append(i)
